@@ -1,0 +1,3 @@
+- Bash(rm *): the reviewer reads and comments; deleting files is the author's decision, not the reviewer's.
+- Bash(git push *): the reviewer may inspect the repository but must never publish or alter remote history.
+- Bash(docker *): the reviewer never starts or mutates containerized infrastructure during review.

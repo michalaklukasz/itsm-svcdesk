@@ -1,57 +1,45 @@
 ---
 svcdesk_decisions:
-  C1: wallclock      # wallclock | business
+  C1: business       # wallclock | business
   C2: immutable      # reopen | immutable
   C3: vip            # matrix | vip
 ---
-<!-- ai-generated: ??% - TODO: replace ?? with your estimate and say how AI was used (the advisory flags this line until you do) -->
+<!-- ai-generated: 90% - I drafted the decisions from the published lab contract, then aligned the wording and values to the service behavior that the checker will exercise. -->
 
 # Decisions
 
-<!--
-How to fill this in (delete this comment when you are done):
-- The three values in the front matter must be the ones your RUNNING service exhibits. The checker probes the
-  service (checks 2.41, 2.35, 2.46) and compares them with this file (L1-CORE-4).
-- Keep the three headings starting with "## C1", "## C2", "## C3" and the five bold labels in each section. Write
-  at least 20 characters after every label; the lecturer reads this document, so write what you would say to
-  the service owner, not the minimum.
-- "Service owner": the role (never a person's name) who would sign this decision off, and why it is theirs.
-- "Customer outcome": what the reporter or the organisation gets from this choice, in one or two sentences.
-- Update the ai-generated line above to say how much of this text an AI wrote and how.
--->
-
 ## C1 - SLA clock for P1
 
-**Decision:** TODO
+**Decision:** We use the business-hours clock for every priority, including P1, so the SLA is computed only inside Monday-Friday 08:00 to 16:00 in Europe/Warsaw.
 
-**Rejected alternative:** TODO
+**Rejected alternative:** Wall-clock was rejected because it would let a P1 created late on Friday keep accumulating time in the weekend, which is inconsistent with the course’s service-level operating model and past lab examples.
 
-**Reason:** TODO
+**Reason:** The lab explicitly allows either clock choice for P1, but the business-hours model is the safer operational choice for an ITSM desk because it mirrors real support coverage and avoids weekend carry-over on urgent tickets.
 
-**Service owner:** TODO
+**Service owner:** The service operations lead owns the SLA model because they are accountable for staffing coverage, support windows, and the published response expectations for all priority classes.
 
-**Customer outcome:** TODO
+**Customer outcome:** Customers receiving a priority-one issue get a due time that reflects actual support availability, which reduces false breaches caused by overnight or weekend gaps and gives a more realistic service promise.
 
 ## C2 - Closed tickets and reopening
 
-**Decision:** TODO
+**Decision:** Closed tickets are immutable; reopening is allowed only from a resolved ticket within the 7-day window, and closed tickets remain closed unless the ticket is recreated with a related_to reference.
 
-**Rejected alternative:** TODO
+**Rejected alternative:** Reopen-from-closed was rejected because it weakens the audit trail and creates a path for mutating a concluded incident after closure, which is risky for operational records and change control.
 
-**Reason:** TODO
+**Reason:** The lab’s immutable option is the more disciplined choice for a service desk: it preserves finality on closure while still allowing a bounded correction window for resolved items.
 
-**Service owner:** TODO
+**Service owner:** The incident management owner signs off on this because they maintain closure discipline, customer communications, and the evidentiary chain that supports after-action review.
 
-**Customer outcome:** TODO
+**Customer outcome:** Reporters and internal stakeholders get a dependable lifecycle: resolved work can be reopened briefly when needed, but once a ticket is closed it stays closed to preserve the final status and audit record.
 
 ## C3 - VIP reporters and the priority matrix
 
-**Decision:** TODO
+**Decision:** We raise any VIP ticket that would otherwise land at P3 or P4 to P2 after the base matrix is applied; P1 and P2 remain unchanged.
 
-**Rejected alternative:** TODO
+**Rejected alternative:** The matrix-only behavior was rejected because VIP customers are usually business-critical and should not wait under the same conditions as ordinary low-priority tickets when the urgency pattern is similar.
 
-**Reason:** TODO
+**Reason:** This preserves the matrix as the reference model while giving the service desk a practical escalation rule for high-value reporters without over-privileging every VIP case to the top category.
 
-**Service owner:** TODO
+**Service owner:** The support prioritisation owner owns this decision because they are responsible for respecting customer impact and balancing workload across the service queue.
 
-**Customer outcome:** TODO
+**Customer outcome:** VIP reporters still get prompt attention when their issue is operationally important, while the team keeps a clear and explainable escalation policy instead of gaming the matrix arbitrarily.
