@@ -1,0 +1,9 @@
+{
+  "source": "gh api --paginate --slurp 'repos/swasik/itsm-2026-submissions/issues?state=all&labels=receipted,kind:submission&per_page=100' | jq '[.[][] | {number, lab: ((.body // \"\" | capture(\"### Lab[[:space:]]*\\n[[:space:]]*(?<value>[0-9]+)\").value) | tonumber), tag: (.body // \"\" | capture(\"### Tag[[:space:]]*\\n[[:space:]]*(?<value>[^[:space:]]+)\").value), labels: [.labels[].name]}]'",
+  "captured_at": "2026-09-26T17:29:36Z",
+  "capture_path": "captures/rework-class-submissions.json",
+  "sha256": "048b80d1e5a34a72b27fb6f4575176e2fe9c87b1d2ae4e0f6617a6f0560e3abe",
+  "deployments": 81,
+  "rework_deployments": 19,
+  "deployment_rework_rate": 0.234568
+}

@@ -15,6 +15,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .dora import DORAValidationError, calculate_metrics
+
 APP_TZ = ZoneInfo("Europe/Warsaw")
 DB_PATH = os.environ.get("SVCDESK_DB", "/data/svcdesk.db")
 TEST_CLOCK_HEADER = "X-Test-Clock"
@@ -313,6 +315,52 @@ async def http_exception_handler(_, exc: StarletteHTTPException):
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "svcdesk"}
+
+
+@app.post("/dora/metrics")
+async def dora_metrics(request: Request) -> dict[str, Any]:
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise SvcDeskError(422, "validation", "request body must be valid JSON") from exc
+    try:
+        return calculate_metrics(payload)
+    except DORAValidationError as exc:
+        raise SvcDeskError(422, "validation", str(exc)) from exc
+
+
+@app.get("/dora/ticket-events")
+async def dora_ticket_events() -> list[dict[str, str]]:
+    conn = get_conn()
+    try:
+        rows = conn.execute("SELECT payload FROM tickets").fetchall()
+    finally:
+        conn.close()
+
+    phase_fields = (
+        ("created", "created_at", "new"),
+        ("acknowledged", "acknowledged_at", "acknowledged"),
+        ("resolved", "resolved_at", "resolved"),
+        ("closed", "closed_at", "closed"),
+    )
+    events = []
+    for row in rows:
+        ticket = json.loads(row["payload"])
+        for phase, timestamp_field, state in phase_fields:
+            timestamp = ticket.get(timestamp_field)
+            if timestamp is None:
+                continue
+            instant = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            events.append((instant, ticket["id"], phase, {
+                "ticket_id": ticket["id"],
+                "at": to_rfc3339(instant),
+                "phase": phase,
+                "priority": ticket["priority"],
+                "state": state,
+            }))
+
+    events.sort(key=lambda event: (event[0], event[1], event[2]))
+    return [event[3] for event in events]
 
 
 @app.post("/tickets", status_code=201)
