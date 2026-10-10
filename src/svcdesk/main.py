@@ -6,13 +6,16 @@ import json
 import os
 import sqlite3
 import uuid
+from time import perf_counter
 from datetime import datetime, time, timedelta, timezone
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
+import httpx
 from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Histogram, generate_latest
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .dora import DORAValidationError, calculate_metrics
@@ -20,6 +23,20 @@ from .dora import DORAValidationError, calculate_metrics
 APP_TZ = ZoneInfo("Europe/Warsaw")
 DB_PATH = os.environ.get("SVCDESK_DB", "/data/svcdesk.db")
 TEST_CLOCK_HEADER = "X-Test-Clock"
+KB_INDEX_URL = os.environ.get("KB_INDEX_URL", "http://kb-index:8080").rstrip("/")
+METRICS_REGISTRY = CollectorRegistry()
+REQUEST_DURATION = Histogram(
+    "http_server_request_duration_seconds",
+    "HTTP server request duration in seconds.",
+    ("http_request_method", "http_route", "http_response_status_code"),
+    buckets=(
+        0.005, 0.01, 0.025, 0.05, 0.1,
+        0.18, 0.185, 0.19, 0.195, 0.2, 0.205, 0.21, 0.215, 0.22, 0.225,
+        0.23, 0.235, 0.24, 0.245, 0.25, 0.255, 0.26, 0.265, 0.27,
+        0.3, 0.5, 1, 2.5, 5, 10,
+    ),
+    registry=METRICS_REGISTRY,
+)
 
 
 class SvcDeskError(Exception):
@@ -292,6 +309,37 @@ def validate_transition(ticket: dict[str, Any], action: str) -> None:
 app = FastAPI()
 
 
+@app.on_event("startup")
+async def create_http_clients() -> None:
+    app.state.kb_client = httpx.AsyncClient(timeout=httpx.Timeout(5.0))
+
+
+@app.on_event("shutdown")
+async def close_http_clients() -> None:
+    client = getattr(app.state, "kb_client", None)
+    if client is not None:
+        await client.aclose()
+
+
+@app.middleware("http")
+async def observe_http_requests(request: Request, call_next):
+    started = perf_counter()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        route = request.scope.get("route")
+        route_template = getattr(route, "path", "unmatched")
+        if route_template != "/metrics":
+            REQUEST_DURATION.labels(
+                http_request_method=request.method,
+                http_route=route_template,
+                http_response_status_code=str(status_code),
+            ).observe(perf_counter() - started)
+
+
 @app.exception_handler(SvcDeskError)
 async def svcdesk_error_handler(_, exc: SvcDeskError):
     return error_response(exc.status_code, exc.code, exc.message)
@@ -315,6 +363,35 @@ async def http_exception_handler(_, exc: StarletteHTTPException):
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "svcdesk"}
+
+
+@app.get("/metrics", include_in_schema=False)
+async def metrics() -> Response:
+    return Response(
+        content=generate_latest(METRICS_REGISTRY),
+        media_type=CONTENT_TYPE_LATEST,
+    )
+
+
+@app.get("/kb/search")
+async def search_knowledge_base(q: str = Query(..., min_length=1, max_length=200)) -> dict[str, Any]:
+    client: httpx.AsyncClient = app.state.kb_client
+    try:
+        upstream = await client.get(f"{KB_INDEX_URL}/search", params={"q": q})
+    except httpx.RequestError as exc:
+        raise SvcDeskError(502, "upstream_unavailable", "knowledge-base index is unavailable") from exc
+
+    if upstream.status_code != 200:
+        raise SvcDeskError(502, "upstream_unavailable", "knowledge-base index is unavailable")
+
+    try:
+        payload = upstream.json()
+    except ValueError as exc:
+        raise SvcDeskError(502, "upstream_unavailable", "knowledge-base index returned invalid JSON") from exc
+
+    if not isinstance(payload, dict) or "hits" not in payload:
+        raise SvcDeskError(502, "upstream_unavailable", "knowledge-base index returned an invalid response")
+    return {"query": q, "hits": payload["hits"]}
 
 
 @app.post("/dora/metrics")
