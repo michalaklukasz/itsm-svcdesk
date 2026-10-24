@@ -1,0 +1,8 @@
+<!-- ai-generated: 80% - compared the published recorded Qwen transcript with Copilot's re-executed snapshot queries. -->
+# Investigator comparison
+
+Both investigations identified payment as the direct cause of checkout failures. The recorded Qwen transcript specifically named the internal `payment` `charge` span and checkout's `PaymentService/Charge` call. Copilot independently queried those same series at 06:42:00Z: each error rate was 0.0321/s, and the combined prediction was empty at the healthy baseline. This supports the payment-related conclusions, although several of the recorded investigator's earlier calls used a 2024 timestamp and returned empty data; its final claims were therefore rescored against the correct 2026 incident window rather than accepted from its own tool calls.
+
+Copilot also measured frontend `GET /` at 59.45 requests/s during the incident, against 0.0833/s at 06:31:23Z. This independent traffic surge is consistent with a homepage-load fault and does not appear in the recorded investigator's final answer. Both transcripts expose only symptoms, not the sealed flag state, so the flag attribution remains an inference from the course's published flag-to-service map.
+
+The Copilot ledger is deliberately based on actual read-only queries of the assigned recording, not a claimed second model run: the session's provider-selected model identifier was unavailable, and the second transcript records the HTTP API as its data source. The two scorecards agree on payment errors; Copilot adds the separate frontend symptom. Neither investigation's language replaces the checker's query re-execution or the grader's sealed-fault comparison.

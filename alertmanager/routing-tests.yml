@@ -1,0 +1,17 @@
+# ai-generated: 30% - test cases drafted from the configured routes and inhibition, then checker-verified.
+routes:
+  - labels: {alertname: ShopCheckoutErrors, service: checkout, cluster: shop, severity: P1}
+    receivers: [pager]
+  - labels: {alertname: ShopCheckoutLatency, service: checkout, cluster: shop, severity: P1}
+    receivers: [pager]
+  - labels: {alertname: ShopCheckoutLatencyWarning, service: checkout, cluster: shop, severity: P2}
+    receivers: [chat]
+  - labels: {alertname: KbSearchAvailabilityBurnSlow, service: svcdesk, slo: availability, severity: P2}
+    receivers: [chat]
+inhibitions:
+  - source: {alertname: ShopCheckoutErrors, service: checkout, cluster: shop, severity: P1}
+    target: {alertname: ShopCheckoutLatencyWarning, service: checkout, cluster: shop, severity: P2}
+    inhibited: true
+  - source: {alertname: ShopCheckoutErrors, service: checkout, cluster: shop, severity: P1}
+    target: {alertname: ShopCheckoutLatencyWarning, service: checkout, cluster: other, severity: P2}
+    inhibited: false

@@ -1,0 +1,40 @@
+{
+  "investigator": {
+    "agent": "Copilot SDK in VS Code",
+    "model": "Copilot-selected model (identifier unavailable in this session)",
+    "mcp_server": "Not used; read-only Prometheus HTTP API",
+    "transcript": "ai-rca/second/transcript.md"
+  },
+  "hypotheses": [
+    {
+      "id": "C1",
+      "hypothesis": "The incident includes a payment-service failure: its internal charge error rate is above zero in the incident window.",
+      "component": "payment",
+      "predicts": "sum(rate(traces_span_metrics_calls_total{service_name=\"payment\",span_name=\"charge\",status_code=\"STATUS_CODE_ERROR\"}[5m])) > 0",
+      "at": "2026-10-12T06:42:00Z",
+      "result": true,
+      "verdict": "correct",
+      "evidence": "0.0321 failed internal charge spans/s at 06:42Z; no series at the 06:31:23Z baseline."
+    },
+    {
+      "id": "C2",
+      "hypothesis": "The homepage was flooded: frontend GET / traffic is above one request per second, far above its healthy baseline.",
+      "component": "frontend",
+      "predicts": "sum(rate(traces_span_metrics_calls_total{service_name=\"frontend\",span_name=\"GET /\"}[5m])) > 1",
+      "at": "2026-10-12T06:42:00Z",
+      "result": true,
+      "verdict": "correct",
+      "evidence": "59.45 GET / requests/s at 06:42Z versus 0.0833/s at baseline."
+    },
+    {
+      "id": "C3",
+      "hypothesis": "Checkout errors are downstream payment-call failures because the payment charge and checkout's PaymentService/Charge spans are both failing.",
+      "component": "checkout",
+      "predicts": "(sum(rate(traces_span_metrics_calls_total{service_name=\"payment\",span_name=\"charge\",status_code=\"STATUS_CODE_ERROR\"}[5m])) > 0) and (sum(rate(traces_span_metrics_calls_total{service_name=\"checkout\",span_name=\"oteldemo.PaymentService/Charge\",status_code=\"STATUS_CODE_ERROR\"}[5m])) > 0)",
+      "at": "2026-10-12T06:42:00Z",
+      "result": true,
+      "verdict": "correct",
+      "evidence": "Both error rates are 0.0321/s at 06:42Z, and the combined comparison is empty at the baseline."
+    }
+  ]
+}
